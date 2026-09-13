@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Co stojí víc?</title>
+<style>
+  :root {
+    --ink: #1c1a17;
+    --paper: #f3efe6;
+    --card: #fffdf8;
+    --line: #d9d2c2;
+    --accent: #8a3324;
+    --accent-ink: #fff8f0;
+    --muted: #6b6558;
+    --good: #2f5c3f;
+    --bad: #8a3324;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 60px;
+  }
+
+  .topbar {
+    width: 100%;
+    max-width: 920px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 22px;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .topbar h1 {
+    font-family: Georgia, serif;
+    font-size: 26px;
+    font-weight: normal;
+    margin: 0;
+    letter-spacing: 0.3px;
+  }
+  .stats {
+    display: flex;
+    gap: 18px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .stats b {
+    color: var(--ink);
+    font-size: 18px;
+  }
+
+  .board {
+    width: 100%;
+    max-width: 920px;
+    display: grid;
+    grid-template-columns: 1fr 64px 1fr;
+    gap: 0;
+    align-items: stretch;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    position: relative;
+  }
+  .card:hover:not(.locked) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(28,26,23,0.12);
+    border-color: #b8ac8e;
+  }
+  .card.locked { cursor: default; }
+
+  .photo-wrap {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #e4ddcc;
+    overflow: hidden;
+    position: relative;
+  }
+  .photo-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .photo-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    background: #e4ddcc;
+    text-align: center;
+    padding: 12px;
+  }
+
+  .card-body {
+    padding: 16px 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  .locality {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+  }
+  .price-line {
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .price {
+    font-size: 30px;
+    font-family: Georgia, serif;
+    font-weight: normal;
+  }
+  .price.hidden-price::after {
+    content: "?";
+  }
+  .price.hidden-price {
+    font-size: 0;
+  }
+  .price.hidden-price::after {
+    font-size: 30px;
+    color: var(--muted);
+  }
+
+  .verdict {
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    font-weight: bold;
+    margin-top: 6px;
+    display: none;
+  }
+  .card.correct { border-color: var(--good); }
+  .card.correct .verdict { display: block; color: var(--good); }
+  .card.wrong { border-color: var(--bad); opacity: 0.7; }
+  .card.wrong .verdict { display: block; color: var(--bad); }
+
+  .vs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .footer-row {
+    width: 100%;
+    max-width: 920px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 22px;
+    font-family: Arial, sans-serif;
+  }
+  .hint {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  button.next {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    padding: 11px 22px;
+    border-radius: 2px;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  button.next.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  button.next:hover { background: #6f2a1d; }
+
+  .end-screen {
+    max-width: 560px;
+    text-align: center;
+    margin-top: 60px;
+    display: none;
+  }
+  .end-screen.visible { display: block; }
+  .end-screen h2 {
+    font-size: 30px;
+    font-weight: normal;
+    margin-bottom: 8px;
+  }
+  .end-screen p {
+    font-family: Arial, sans-serif;
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 24px;
+  }
+  .end-screen button {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    padding: 12px 26px;
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .game-area.hidden { display: none; }
+
+  @media (max-width: 640px) {
+    .board { grid-template-columns: 1fr; gap: 14px; }
+    .vs { display: none; }
+    .topbar { flex-direction: column; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Co stojí víc?</h1>
+  <div class="stats">
+    <div>Kolo <b id="round-num">1</b>/<span id="round-total">20</span></div>
+    <div>Skóre <b id="score">0</b></div>
+    <div>Nejlepší série <b id="best-streak">0</b></div>
+  </div>
+</div>
+
+<div class="game-area" id="game-area">
+  <div class="board" id="board"></div>
+  <div class="footer-row">
+    <span class="hint" id="hint">Klikni na inzerát, který má podle tebe vyšší cenu.</span>
+    <button class="next" id="next-btn">Další kolo →</button>
+  </div>
+</div>
+
+<div class="end-screen" id="end-screen">
+  <h2>Konec hry</h2>
+  <p id="end-summary"></p>
+  <button id="restart-btn">Hrát znovu</button>
+</div>
+
+<script>
+// -----------------------------------------------------------------
+// DATA: sem vlož svých 40 inzerátů (cena v Kč + URL fotky).
+// Formát: { price: číslo, photo: "url", label: "volitelný popis/lokalita" }
+// Klidně nech label prázdný "" - zobrazí se jen jako "Inzerát".
+// -----------------------------------------------------------------
+const LISTINGS = [
+  { price: 6495000,  photo: "https://d18-a.sdn.cz/d_18/c_img_qC_A/nO2CysqjGrud5yFPfGzmg2M/ebd3.jpeg?fl=res,1200,1200,1|wrm,/watermark/sreality.png,10|shr,,20|webp,80", label: "Byt 1+kk 28 m², Praha - Břevnov" },
+  { price: 7300000,  photo: "https://d18-a.sdn.cz/d_18/c_img_qF_A/kBoPC1H7BDgXePeOHqHWfd/cfce.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Byt 3+1 85 m², Beroun" },
+  { price: 8390000,  photo: "https://d18-a.sdn.cz/d_18/c_img_qF_B/k0OqwCKRZSJdDvnHwzE51/c84c.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Byt 3+kk 62 m², Praha - Chodov" },
+  { price: 13995000, photo: "https://d18-a.sdn.cz/d_18/c_img_qD_F/kO7lxrd9zlOWhOGA3HW3Qpw/f753.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Byt 3+kk 81 m², Praha - Nusle" },
+  { price: 2500000,  photo: "https://d18-a.sdn.cz/d_18/c_img_qC_B/nO2CysqjGrCP7qOIvpG3Iyeu/5e54.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Dům 179 m², Nýrsko" },
+  { price: 24990000, photo: "https://d18-a.sdn.cz/d_18/c_img_qF_B/nOdL4BtPEyDrQHrekHwyUEw/fe56.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Dům 240 m², Holubice" },
+  { price: 4900000,  photo: "https://d18-a.sdn.cz/d_18/c_img_qE_B/kPVqmweP7JC1dLSXBHd1ER2/ee56.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Chalupa 110 m², Ošelín - Lobzy" },
+  { price: 11684000, photo: "https://d18-a.sdn.cz/d_18/c_img_qF_B/k0OqwCKREB0TcEiFHvichO/63eb.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Dům 94 m², Plzeň 10-Lhota" },
+  { price: 16800000, photo: "https://d18-a.sdn.cz/d_18/c_img_qF_B/nOdL4BtPEyD4lWfFH6HwzOH0/ca86.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Byt 4+kk 103 m², Brno - Horní Heršpice" },
+  { price: 20590000, photo: "https://d18-a.sdn.cz/d_18/c_img_qF_B/k0OqwCKRDbeZQXFHuRrir/bb9f.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Byt 3+1 118 m², Praha - Dejvice" },
+  { price: 5790000,  photo: "https://d18-a.sdn.cz/d_18/c_img_qF_B/k0OqwCKRD1EvuCRsHwymBJ/1eff.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Byt 3+kk 73 m², Benátky nad Jizerou" },
+  { price: 14790000, photo: "https://d18-a.sdn.cz/d_18/c_img_qC_E/nO2CysqjGrDPliFSxTHEJ6eZ/00c5.jpeg?fl=res,800,800,1|shr,,20|webp,60", label: "Byt 2+1 86 m², Praha - Karlín" },
+];
+
+// -----------------------------------------------------------------
+
+const TOTAL_ROUNDS = Math.min(20, Math.floor(LISTINGS.length / 2));
+let pairs = [];
+let round = 0;
+let score = 0;
+let streak = 0;
+let bestStreak = 0;
+let locked = false;
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildPairs() {
+  const shuffled = shuffle(LISTINGS);
+  const p = [];
+  for (let i = 0; i + 1 < shuffled.length && p.length < TOTAL_ROUNDS; i += 2) {
+    p.push([shuffled[i], shuffled[i + 1]]);
+  }
+  pairs = p;
+}
+
+function formatPrice(n) {
+  return n.toLocaleString('cs-CZ') + ' Kč';
+}
+
+function photoBlock(listing) {
+  if (listing.photo) {
+    return '<div class="photo-wrap"><img src="' + listing.photo + '" alt="" onerror="this.parentElement.innerHTML=\'<div class=&quot;photo-fallback&quot;>Fotka se nenačetla</div>\'"></div>';
+  }
+  return '<div class="photo-wrap"><div class="photo-fallback">' +
+    (listing.label || 'Inzerát') + '</div></div>';
+}
+
+function renderRound() {
+  locked = false;
+  document.getElementById('hint').textContent = 'Klikni na inzerát, který má podle tebe vyšší cenu.';
+  document.getElementById('next-btn').classList.remove('visible');
+
+  const [a, b] = pairs[round];
+  const board = document.getElementById('board');
+  board.innerHTML =
+    '<div class="card" data-side="left">' +
+      photoBlock(a) +
+      '<div class="card-body">' +
+        '<div class="locality">' + (a.label || 'Inzerát') + '</div>' +
+        '<div class="price-line">Cena</div>' +
+        '<div class="price hidden-price">' + formatPrice(a.price) + '</div>' +
+        '<div class="verdict"></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="vs">VS</div>' +
+    '<div class="card" data-side="right">' +
+      photoBlock(b) +
+      '<div class="card-body">' +
+        '<div class="locality">' + (b.label || 'Inzerát') + '</div>' +
+        '<div class="price-line">Cena</div>' +
+        '<div class="price hidden-price">' + formatPrice(b.price) + '</div>' +
+        '<div class="verdict"></div>' +
+      '</div>' +
+    '</div>';
+
+  board.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', () => handlePick(card));
+  });
+
+  document.getElementById('round-num').textContent = round + 1;
+}
+
+function handlePick(card) {
+  if (locked) return;
+  locked = true;
+
+  const [a, b] = pairs[round];
+  const side = card.dataset.side;
+  const picked = side === 'left' ? a : b;
+  const other = side === 'left' ? b : a;
+  const correct = picked.price >= other.price;
+
+  document.querySelectorAll('.price').forEach(el => el.classList.remove('hidden-price'));
+
+  const leftCard = document.querySelector('.card[data-side="left"]');
+  const rightCard = document.querySelector('.card[data-side="right"]');
+  const pickedCard = side === 'left' ? leftCard : rightCard;
+  const otherCard = side === 'left' ? rightCard : leftCard;
+
+  pickedCard.classList.add(correct ? 'correct' : 'wrong');
+  pickedCard.classList.add('locked');
+  otherCard.classList.add('locked');
+  pickedCard.querySelector('.verdict').textContent = correct ? 'Správně, dražší!' : 'Chyba, levnější.';
+
+  if (correct) {
+    score += 10 + streak * 2;
+    streak += 1;
+    bestStreak = Math.max(bestStreak, streak);
+    document.getElementById('hint').textContent = 'Správně! Série: ' + streak + '.';
+  } else {
+    streak = 0;
+    document.getElementById('hint').textContent = 'Tentokrát ne. Zkus další dvojici.';
+  }
+
+  document.getElementById('score').textContent = score;
+  document.getElementById('best-streak').textContent = bestStreak;
+
+  const nextBtn = document.getElementById('next-btn');
+  if (round + 1 < pairs.length) {
+    nextBtn.textContent = 'Další kolo →';
+    nextBtn.classList.add('visible');
+    nextBtn.onclick = () => { round += 1; renderRound(); };
+  } else {
+    nextBtn.textContent = 'Zobrazit výsledek';
+    nextBtn.classList.add('visible');
+    nextBtn.onclick = showEnd;
+  }
+}
+
+function showEnd() {
+  document.getElementById('game-area').classList.add('hidden');
+  const end = document.getElementById('end-screen');
+  end.classList.add('visible');
+  document.getElementById('end-summary').textContent =
+    'Skóre ' + score + ' bodů z ' + pairs.length + ' kol. Nejdelší série: ' + bestStreak + '.';
+}
+
+function startGame() {
+  score = 0;
+  streak = 0;
+  bestStreak = 0;
+  round = 0;
+  buildPairs();
+  document.getElementById('round-total').textContent = pairs.length;
+  document.getElementById('score').textContent = 0;
+  document.getElementById('best-streak').textContent = 0;
+  document.getElementById('game-area').classList.remove('hidden');
+  document.getElementById('end-screen').classList.remove('visible');
+  renderRound();
+}
+
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+startGame();
+</script>
+
+</body>
+</html>
